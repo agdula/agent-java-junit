@@ -334,11 +334,21 @@ public class ParallelRunningHandler implements IListenerHandler {
 	}
 
 	private String getStackTraceString(Throwable e) {
+		 return getStackTraceString(e,new HashSet<Object>());
+	}
+	
+	private String getStackTraceString(Throwable e, Set<Object> causes) {
 		StringBuilder result = new StringBuilder();
 		for (int i = 0; i < e.getStackTrace().length; i++) {
 			result.append(e.getStackTrace()[i]);
 			result.append(System.getProperty("line.separator"));
 		}
+		Throwable cause = e.getCause();
+		if(cause != null && !causes.contains(cause)) {
+			causes.add(cause);
+			result.append(System.getProperty("line.separator") + "Caused By: " + cause.getMessage() + System.getProperty("line.separator") + getStackTraceString(cause, causes));
+		}
+
 		return result.toString();
 	}
 
