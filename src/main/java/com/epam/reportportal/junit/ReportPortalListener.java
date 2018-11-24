@@ -57,9 +57,10 @@ public class ReportPortalListener extends RunListener {
 	public void testStarted(Description description) throws Exception {
 		handler.startSuiteIfRequired(description);
 		handler.starTestIfRequired(description);
-		if (null == description.getAnnotation(Test.class) && description.getMethodName().contains("#")) {
+		//System.out.println("Started:"+description.getMethodName());
+		// if (null == description.getAnnotation(Test.class) && description.getMethodName().contains("#")) {
 			handler.startTestMethod(description);
-		}
+		// }
 	}
 
 	/**
@@ -67,9 +68,10 @@ public class ReportPortalListener extends RunListener {
 	 */
 	@Override
 	public void testFinished(Description description) throws Exception {
-		if (description.getMethodName().contains("#")) {
+		//System.out.println("Finished:"+description.getMethodName());
+		//if (description.getMethodName().contains("#")) {
 			handler.stopTestMethod(description);
-		}
+		//}
 	}
 
 	/**
@@ -77,10 +79,13 @@ public class ReportPortalListener extends RunListener {
 	 */
 	@Override
 	public void testFailure(Failure failure) throws Exception {
-		handler.clearRunningItemId();
-		handler.sendReportPortalMsg(failure);
-		handler.markCurrentTestMethod(failure.getDescription(), Statuses.FAILED);
-		handler.handleTestSkip(failure.getDescription());
+		//System.out.println("Failed:"+failure.getDescription());
+		if(failure.getDescription().getMethodName() != null) {
+			handler.clearRunningItemId();
+			handler.sendReportPortalMsg(failure);
+			handler.markCurrentTestMethod(failure.getDescription(), Statuses.FAILED);
+			handler.handleTestSkip(failure.getDescription());
+		}
 	}
 
 	/**

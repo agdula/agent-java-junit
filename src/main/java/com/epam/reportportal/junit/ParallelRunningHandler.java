@@ -117,6 +117,7 @@ public class ParallelRunningHandler implements IListenerHandler {
 
 	@Override
 	public void startTestMethod(Description description) {
+		// System.out.println("Starting " + description);
 		StartTestItemRQ rq = new StartTestItemRQ();
 		String methodName = description.getMethodName();
 		rq.setName(methodName.replaceAll("\\#.*\\#", ""));
@@ -126,10 +127,16 @@ public class ParallelRunningHandler implements IListenerHandler {
 		String testId = context.getRunningTestId(description.getTestClass());
 		EntryCreatedRS rs = null;
 		try {
-			rs = reportPortalService.startTestItem(testId, rq);
 			String method = runningMethodName(getMethod(description));
-			context.addRunningMethod(method, rs.getId());
-			ReportPortalListenerContext.setRunningNowItemId(rs.getId());
+			if(context.tryStart(method)){
+				//System.out.println("Starting " + method);
+				rs = reportPortalService.startTestItem(testId, rq);
+				context.addRunningMethod(method, rs.getId());
+				ReportPortalListenerContext.setRunningNowItemId(rs.getId());
+			} else {
+				context.addRunningMethod(method, null);
+				//System.out.println("Already started " + description);
+			}
 		} catch (Exception e) {
 			handleException(e, logger, "Unable start test method: '" + description.getMethodName() + "'");
 		}
@@ -137,7 +144,6 @@ public class ParallelRunningHandler implements IListenerHandler {
 
 	@Override
 	public void stopTestMethod(Description description) {
-		ReportPortalListenerContext.setRunningNowItemId(null);
 		FinishTestItemRQ rq = new FinishTestItemRQ();
 		rq.setEndTime(Calendar.getInstance().getTime());
 		Method method = getMethod(description);
@@ -145,9 +151,15 @@ public class ParallelRunningHandler implements IListenerHandler {
 		rq.setStatus((status == null || status.equals("")) ? Statuses.PASSED : status);
 		try {
 			String methodName = runningMethodName(method);
-			reportPortalService.finishTestItem(context.getRunningMethodId(methodName), rq);
+			if(context.tryFinish(methodName)) {
+				//System.out.println("Finishing "  +methodName);
+				ReportPortalListenerContext.setRunningNowItemId(null);
+				reportPortalService.finishTestItem(context.getRunningMethodId(methodName), rq);
 
-			context.addFinishedMethod(description.getTestClass(), methodName);
+				context.addFinishedMethod(description.getTestClass(), methodName);
+			}/* else {
+				System.out.println("not Finishing "  +methodName);
+			}*/
 		} catch (Exception e) {
 			handleException(e, logger, "Unable finish test method: '" + context.getRunningMethodId(method.getName()) + "'");
 		}
@@ -175,6 +187,7 @@ public class ParallelRunningHandler implements IListenerHandler {
 		String suiteName = processor.getSuiteName(description.getTestClass());
 		String suiteId = context.getRunningSuiteId(suiteName);
 		if (suiteId == null) {
+			//System.out.println("Starting suite:" +suiteName);
 			StartTestItemRQ rq = new StartTestItemRQ();
 			rq.setLaunchId(context.getLaunchId());
 			rq.setName(suiteName);
@@ -197,6 +210,7 @@ public class ParallelRunningHandler implements IListenerHandler {
 		final Class<?> test = description.getTestClass();
 		final String runningId = context.getRunningTestId(test);
 		if (runningId == null) {
+			// System.out.println("Stopping suite:" +suiteName);
 			final String suiteId = context.getRunningSuiteId(suiteName);
 			final FinishTestItemRQ rq = new FinishTestItemRQ();
 			rq.setEndTime(Calendar.getInstance().getTime());
@@ -205,7 +219,9 @@ public class ParallelRunningHandler implements IListenerHandler {
 			} catch (Exception e) {
 				handleException(e, logger, "Unable finish test suite: '" + suiteId + "'");
 			}
-		}
+		} /*else {
+			System.out.println("Not Stopping suite:" +suiteName);
+		}*/
 	}
 
 	@Override

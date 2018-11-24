@@ -42,7 +42,7 @@ public class ParallelRunningContext {
 
 	// map of running methods
 	// key - method name value- method id
-	private ConcurrentMap<String, String> runningMethods;
+	private ConcurrentMap<String, RunningMethod> runningMethods;
 	private volatile String launchId = "";
 	// map of finished test from the specified suites
 	// key- suite, value - tests
@@ -54,7 +54,7 @@ public class ParallelRunningContext {
 		runningTests = new ConcurrentHashMap<Class<?>, String>();
 		runningSuites = new ConcurrentHashMap<String, String>();
 		finishedMethods = new ConcurrentHashMap<Class<?>, Set<String>>();
-		runningMethods = new ConcurrentHashMap<String, String>();
+		runningMethods = new ConcurrentHashMap<String, RunningMethod>();
 		finishedTests = new ConcurrentHashMap<String, Set<Class<?>>>();
 		methodStatuses = new ConcurrentHashMap<Method, String>();
 	}
@@ -88,12 +88,27 @@ public class ParallelRunningContext {
 		return finishedMethods.get(test);
 	}
 
-	public void addRunningMethod(String method, String id) {
-		runningMethods.put(method, id);
+	public synchronized boolean tryStart(String method) {
+		return runningMethods.get(method) == null;
+	}
+	
+	public synchronized void addRunningMethod(String method, String id) {
+		RunningMethod runningMethod = runningMethods.get(method);
+		if(runningMethod == null)
+			runningMethod = new RunningMethod(id,0);
+		runningMethod.level++;
+		runningMethods.put(method, runningMethod);
+	}
+
+	public boolean tryFinish(String method) {
+		RunningMethod runningMethod = runningMethods.get(method);
+		runningMethod.level--;
+		// System.out.println("try Finish " + method + ", level:" + runningMethod.level);
+		return runningMethod.level == 0;
 	}
 
 	public String getRunningMethodId(String method) {
-		return runningMethods.get(method);
+		return runningMethods.get(method).id;
 	}
 
 	public String getLaunchId() {
@@ -123,5 +138,15 @@ public class ParallelRunningContext {
 
 	public String getStatus(Method method) {
 		return methodStatuses.get(method);
+	}
+
+	private static class RunningMethod {
+		String id;
+		int level;
+
+		public RunningMethod(String id, int level) {
+			this.id = id;
+			this.level = level;
+		}
 	}
 }
